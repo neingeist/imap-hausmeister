@@ -31,6 +31,18 @@ def move_all(src, dest):
         assert typ == 'OK'
 
 
+def mark_all_read(mailbox):
+    typ, _ = M.select(mailbox)
+    assert typ == 'OK'
+
+    typ, data = M.uid('SEARCH', None, 'UNSEEN')
+    assert typ == 'OK'
+    uids = data[0].decode('utf-8').split()
+    if uids:
+        typ, data = M.uid('STORE', ','.join(uids), '+FLAGS', '\SEEN')
+        assert typ == 'OK'
+
+
 IMAP_HOST='mail.bl0rg.net'
 
 
@@ -47,6 +59,13 @@ if number('INBOX.Archives') > 0:
 
 current_archives = time.strftime('INBOX.Archives.%Y')
 move_all('INBOX.Sent', current_archives)
+
+for f in folders():
+    if f.startswith('INBOX.Archives'):
+        mark_all_read(f)
+
+mark_all_read('INBOX.spam.train.spam')
+mark_all_read('INBOX.spam.train.ham')
 
 # XXX INBOX.Archives.%Y should only have mails from %Y
 
