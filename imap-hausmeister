@@ -1,0 +1,54 @@
+#!/usr/bin/python3
+import imaplib
+import time
+from netrc import netrc
+
+
+def folders():
+    typ, data = M.list()
+    assert typ == 'OK'
+    for l in data:
+        l = l.decode('utf-8')
+        flags, delim, name = l.split(' ')
+        yield name
+
+
+def number(mailbox):
+    typ, data = M.select(mailbox)
+    assert typ == 'OK'
+    return int(data[0])
+
+
+def move_all(src, dest):
+    typ, _ = M.select(src)
+    assert typ == 'OK'
+
+    typ, data = M.uid('SEARCH', None, 'ALL')
+    assert typ == 'OK'
+    uids = data[0].decode('utf-8').split()
+    if uids:
+        typ, data = M.uid('MOVE', ','.join(uids), dest)
+        assert typ == 'OK'
+
+
+IMAP_HOST='mail.bl0rg.net'
+
+
+M = imaplib.IMAP4(IMAP_HOST)
+M.starttls()
+login, _, password = netrc().authenticators(IMAP_HOST)
+M.login(login, password)
+
+
+if 'INBOX.Archive' in folders():
+    print('INBOX.Archive should not exist')
+if number('INBOX.Archives') > 0:
+    print('INBOX.Archives should be empty')
+
+current_archives = time.strftime('INBOX.Archives.%Y')
+move_all('INBOX.Sent', current_archives)
+
+# XXX INBOX.Archives.%Y should only have mails from %Y
+
+
+M.logout()
