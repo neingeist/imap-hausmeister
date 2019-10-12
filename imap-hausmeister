@@ -4,6 +4,7 @@ import time
 import email
 import re
 import random
+import dateutil.tz
 from netrc import netrc
 
 
@@ -65,6 +66,7 @@ def get_headers(mailbox):
 
 
 IMAP_HOST='mail.bl0rg.net'
+TIMEZONE='Europe/Berlin'
 
 
 M = imaplib.IMAP4(IMAP_HOST)
@@ -89,6 +91,7 @@ mark_all_read('INBOX.spam.train.spam')
 mark_all_read('INBOX.spam.train.ham')
 
 if random.random() < 0.05:  # Runs for a few minutes, so only occasionally
+    tz = dateutil.tz.gettz(TIMEZONE)
     for f in folders():
         m = re.match(r'^INBOX.Archives.(\d+)$', f)
         if not m:
@@ -96,8 +99,10 @@ if random.random() < 0.05:  # Runs for a few minutes, so only occasionally
         year = int(m.group(1))
 
         for h in get_headers('INBOX.Archives.{}'.format(year)):
-            if time.localtime(time.mktime(email.utils.parsedate(h['Date']))).tm_year != year:
-                print('{} contains at least one mail from the wrong year'.format(f))
+            if email.utils.parsedate_to_datetime(h['Date']).astimezone(tz).year != year:
+                print('{} contains at least one mail from the wrong year:'.format(f))
+                for field in ['Date', 'From', 'Subject']:
+                    print('{}: {}'.format(field, h[field]))
                 break
 
 
