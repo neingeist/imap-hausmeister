@@ -1,6 +1,9 @@
 #!/usr/bin/python3
 import imaplib
 import time
+import email
+import re
+import random
 from netrc import netrc
 
 
@@ -43,6 +46,24 @@ def mark_all_read(mailbox):
         assert typ == 'OK'
 
 
+def get_headers(mailbox):
+    typ, _ = M.select(mailbox)
+    assert typ == 'OK'
+
+    typ, data = M.search(None, 'ALL')
+    assert typ == 'OK'
+
+    for num in data[0].split():
+        typ, msg_data = M.fetch(num, '(BODY.PEEK[HEADER])')
+        assert typ == 'OK'
+
+        for response_part in msg_data:
+            if isinstance(response_part, tuple):
+                part = response_part[1].decode('utf-8')
+                msg = email.message_from_string(part)
+                yield msg
+
+
 IMAP_HOST='mail.bl0rg.net'
 
 
@@ -67,7 +88,17 @@ for f in folders():
 mark_all_read('INBOX.spam.train.spam')
 mark_all_read('INBOX.spam.train.ham')
 
-# XXX INBOX.Archives.%Y should only have mails from %Y
+if random.random() < 0.05:  # Runs for a few minutes, so only occasionally
+    for f in folders():
+        m = re.match(r'^INBOX.Archives.(\d+)$', f)
+        if not m:
+            continue
+        year = int(m.group(1))
+
+        for h in get_headers('INBOX.Archives.{}'.format(year)):
+            if time.localtime(time.mktime(email.utils.parsedate(h['Date']))).tm_year != year:
+                print('{} contains at least one mail from the wrong year'.format(f))
+                break
 
 
 M.logout()
